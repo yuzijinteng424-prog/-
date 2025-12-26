@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>パスワード自動生成</title>
   <style>
-    /* 基本スタイル */
+    /* 元の背景とスタイルを維持 */
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       margin: 0;
@@ -19,7 +19,6 @@
       transition: background 0.5s ease;
     }
 
-    /* コンテナ */
     .container {
       background-color: rgba(255, 255, 255, 0.9);
       border-radius: 30px;
@@ -29,22 +28,18 @@
       max-width: 560px;
       box-shadow: 0 15px 50px rgba(0, 0, 0, 0.25);
       transition: box-shadow 0.3s ease;
+      color: #333; /* 文字を見やすくするため */
     }
 
-    .container:hover {
-      box-shadow: 0 20px 100px rgba(0, 0, 0, 0.35);
-    }
-
-    /* ヘッダー */
     h2 {
       font-size: 32px;
       margin-bottom: 20px;
       font-weight: bold;
       text-transform: uppercase;
       letter-spacing: 2px;
+      color: #333;
     }
 
-    /* スライダー */
     label {
       font-size: 18px;
       display: block;
@@ -72,25 +67,23 @@
       background: #5cb85c;
       border-radius: 50%;
       cursor: pointer;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     }
 
-    /* チェックボックス */
     .checkbox-group {
       display: flex;
       justify-content: space-between;
       margin-top: 15px;
-      padding: 0 30px;
+      padding: 0 10px;
     }
 
     .checkbox-group label {
-      font-size: 16px;
-      margin: 0 10px;
+      font-size: 14px;
+      margin: 0;
       display: flex;
       align-items: center;
+      cursor: pointer;
     }
 
-    /* ボタン */
     button {
       padding: 18px 50px;
       background-color: #f39c12;
@@ -101,8 +94,8 @@
       cursor: pointer;
       width: 100%;
       max-width: 380px;
-      transition: background-color 0.3s, transform 0.3s, box-shadow 0.3s;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      margin-top: 20px;
+      transition: all 0.3s;
     }
 
     button:hover {
@@ -110,29 +103,18 @@
       transform: scale(1.05);
     }
 
-    button:active {
-      transform: scale(1);
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    }
-
-    /* パスワード表示 */
     #password {
       margin-top: 30px;
       font-size: 24px;
       font-weight: bold;
-      word-wrap: break-word;
       background-color: #f7f7f7;
       padding: 20px;
       border-radius: 15px;
       color: #333;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      word-break: break-word;
-      white-space: pre-wrap;
-      text-align: center;
-      transition: all 0.3s ease;
+      word-break: break-all;
+      min-height: 30px;
     }
 
-    /* コピー用ボタン */
     .copy-btn {
       margin-top: 20px;
       padding: 18px 50px;
@@ -144,29 +126,10 @@
       cursor: pointer;
       width: 100%;
       max-width: 380px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-      transition: background-color 0.3s, transform 0.3s, box-shadow 0.3s;
     }
 
     .copy-btn:hover {
       background-color: #3498db;
-      transform: scale(1.05);
-    }
-
-    .copy-btn:active {
-      transform: scale(1);
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    }
-
-    /* アラート */
-    .alert {
-      background-color: #f44336;
-      color: white;
-      padding: 15px;
-      margin-top: 20px;
-      border-radius: 5px;
-      display: none;
-      font-weight: 600;
     }
   </style>
 </head>
@@ -189,63 +152,83 @@
   <div id="password"></div>
   
   <button class="copy-btn" id="copyButton" onclick="copyPassword()">コピー</button>
-  <div class="alert" id="alertMessage">パスワードを生成してからコピーしてください。</div>
 </div>
 
 <script>
-  // パスワード生成
+  // 長さ表示の更新
+  document.getElementById('length').addEventListener('input', function() {
+    document.getElementById('lengthValue').textContent = this.value;
+  });
+
+  // 【改良版】パスワード生成ロジック
   function generatePassword() {
-    const length = document.getElementById('length').value;
-    const useUpper = document.getElementById('upper').checked;
-    const useLower = document.getElementById('lower').checked;
-    const useNumbers = document.getElementById('number').checked;
-    const useSpecial = document.getElementById('special').checked;
+    const length = parseInt(document.getElementById('length').value);
+    const sets = [
+      { chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', active: document.getElementById('upper').checked },
+      { chars: 'abcdefghijklmnopqrstuvwxyz', active: document.getElementById('lower').checked },
+      { chars: '0123456789', active: document.getElementById('number').checked },
+      { chars: '!@#$%^&*()_+-=[]{}|;:,.<>?', active: document.getElementById('special').checked }
+    ];
 
     let charset = '';
-    if (useUpper) charset += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    if (useLower) charset += 'abcdefghijklmnopqrstuvwxyz';
-    if (useNumbers) charset += '0123456789';
-    if (useSpecial) charset += '!@#$%^&*()_+-=[]{}|;:,.<>?';
+    let password = [];
+
+    // 各チェックされた種類から最低1文字入れる（文字種漏れ防止）
+    sets.forEach(set => {
+      if (set.active) {
+        charset += set.chars;
+        const randomByte = new Uint32Array(1);
+        window.crypto.getRandomValues(randomByte);
+        password.push(set.chars[randomByte[0] % set.chars.length]);
+      }
+    });
 
     if (charset === '') {
       alert('少なくとも1種類の文字を選択してください。');
       return;
     }
 
-    let password = '';
-    for (let i = 0; i < length; i++) {
-      const randomIndex = Math.floor(Math.random() * charset.length);
-      password += charset[randomIndex];
+    // 残りの長さを安全な乱数で埋める
+    const remaining = length - password.length;
+    const randomArray = new Uint32Array(remaining);
+    window.crypto.getRandomValues(randomArray);
+
+    for (let i = 0; i < remaining; i++) {
+      password.push(charset[randomArray[i] % charset.length]);
     }
 
-    document.getElementById('password').textContent = password;
-    document.getElementById('alertMessage').style.display = 'none';
-    document.getElementById('password').style.backgroundColor = '#ffffff';
-    document.getElementById('password').style.color = '#333';
+    // 配列をシャッフル（安全な乱数を使用）
+    const shuffled = password
+      .map(value => ({ value, sort: window.crypto.getRandomValues(new Uint32Array(1))[0] }))
+      .sort((a, b) => a.sort - b.sort)
+      .map(({ value }) => value)
+      .join('');
+
+    document.getElementById('password').textContent = shuffled;
   }
 
-  // パスワードの長さをリアルタイムで更新
-  document.getElementById('length').addEventListener('input', function() {
-    document.getElementById('lengthValue').textContent = this.value;
-  });
-
-  // コピー機能
-  function copyPassword() {
+  // 【改良版】コピー機能
+  async function copyPassword() {
     const passwordText = document.getElementById('password').textContent;
 
     if (!passwordText) {
-      document.getElementById('alertMessage').style.display = 'block';
+      alert('パスワードを生成してからコピーしてください。');
       return;
     }
 
-    const tempTextArea = document.createElement('textarea');
-    tempTextArea.value = passwordText;
-    document.body.appendChild(tempTextArea);
-    tempTextArea.select();
-    document.execCommand('copy');
-    document.body.removeChild(tempTextArea);
-
-    alert('パスワードがコピーされました！');
+    try {
+      await navigator.clipboard.writeText(passwordText);
+      alert('コピーされました！');
+    } catch (err) {
+      // 失敗時のフォールバック
+      const temp = document.createElement('textarea');
+      temp.value = passwordText;
+      document.body.appendChild(temp);
+      temp.select();
+      document.execCommand('copy');
+      document.body.removeChild(temp);
+      alert('コピーされました！');
+    }
   }
 </script>
 
